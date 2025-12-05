@@ -10,6 +10,13 @@ import matplotlib.lines as mlines
 import requests
 import json
 
+# ==========================================
+# 🔐 商业化配置 (License Config)
+# ==========================================
+PRO_LICENSE_KEY = "LABPLOT2025"  # 你可以随时修改这个密码
+FREE_DPI_LIMIT = 150             # 免费版最大 DPI
+PRO_DPI_LIMIT = 600              # Pro 版最大 DPI
+
 # -----------------------------------------------------------------------------
 # 1. 配置与工具类 (Infrastructure)
 # -----------------------------------------------------------------------------
@@ -360,8 +367,18 @@ class Visualizer:
 # -----------------------------------------------------------------------------
 
 def main():
-    st.title("🧬 LabPlot Pro: v2.5 Color Control")
+    st.title("🧬 LabPlot Pro: v3.0 Commercial")
     
+    # === 0. 商业化激活区 (Lock) ===
+    with st.sidebar.expander("🔑 Pro 版激活 (License)", expanded=True):
+        license_input = st.text_input("输入解锁码", type="password", help="关注公众号回复'神器'免费获取")
+        is_pro = (license_input == PRO_LICENSE_KEY)
+        if is_pro:
+            st.success("✅ Pro 版已激活！所有功能解锁。")
+        else:
+            st.info("🔒 当前为免费版")
+            st.caption(f"限制：最高 {FREE_DPI_LIMIT} DPI，不支持矢量导出，无法使用 AI。")
+
     # --- 1. 数据输入 ---
     with st.sidebar.expander("📂 1. 数据输入 (Data)", expanded=True):
         # [Fix] 添加 unique key 防止 DuplicateElementId 错误
@@ -450,12 +467,17 @@ def main():
         st.markdown("---")
         custom_title = st.text_input("自定义标题 (Title)", "", help="留空则不显示标题")
         
-    # --- 4. AI 智能解读 (New) ---
+    # --- 4. AI 智能解读 (Locked) ---
     with st.sidebar.expander("🤖 4. AI 智能解读 (AI Insight)", expanded=False):
-        gemini_key = st.text_input("Gemini API Key", type="password")
-        # 用户自定义问题输入框
-        user_query = st.text_area("自定义问题 (可选)", placeholder="例如：请分析这些基因与癌症通路的关联...", help="留空则进行自动通用解读")
-        start_ai = st.button("🧠 开始智能分析")
+        if is_pro:
+            gemini_key = st.text_input("Gemini API Key", type="password")
+            user_query = st.text_area("自定义问题 (可选)", placeholder="例如：请分析这些基因与癌症通路的关联...", help="留空则进行自动通用解读")
+            start_ai = st.button("🧠 开始智能分析")
+        else:
+            st.warning("🔒 AI 智能分析功能仅限 Pro 版可用。\n请在侧边栏上方输入解锁码激活。")
+            start_ai = False
+            gemini_key = ""
+            user_query = ""
 
     meta_mgr = MetadataManager()
     
@@ -490,7 +512,7 @@ def main():
         df_plot = DataProcessor.normalize(df, norm_mode)
 
     # --- AI Analysis Trigger ---
-    if start_ai:
+    if start_ai and is_pro:
         with st.status("🤖 AI 正在思考中...", expanded=True) as status:
             st.write("正在提取关键特征...")
             # 传递 user_query 到 AI 分析函数
@@ -570,16 +592,31 @@ def main():
                 
                 st.markdown("### 📥 下载图表")
                 c1, c2 = st.columns(2)
-                with c1: save_fmt = st.selectbox("格式", ["PDF", "PNG", "SVG", "JPG"], 0)
-                with c2: save_dpi = st.number_input("DPI", 100, 600, 300, 50)
+                
+                # [Lock] 下载格式与DPI的商业化逻辑
+                if is_pro:
+                    # Pro: 全格式，高 DPI
+                    save_fmt = c1.selectbox("格式 (Pro Unlocked)", ["PDF", "SVG", "TIFF", "PNG", "JPG"], 0)
+                    max_dpi = PRO_DPI_LIMIT
+                else:
+                    # Free: 仅位图，低 DPI
+                    save_fmt = c1.selectbox("格式 (Free Limit)", ["PNG", "JPG"], 0)
+                    max_dpi = FREE_DPI_LIMIT
+                    
+                save_dpi = c2.number_input("DPI", 72, max_dpi, min(300, max_dpi), 50)
                 
                 buf = io.BytesIO()
-                # 格式处理
                 save_fmt_lower = save_fmt.lower()
                 if save_fmt_lower == "jpg": save_fmt_lower = "jpeg"
                 
                 fig.savefig(buf, format=save_fmt_lower, dpi=save_dpi, bbox_inches='tight', facecolor='white')
-                st.download_button(f"下载 {save_fmt}", buf.getvalue(), f"plot.{save_fmt_lower}")
+                
+                # 按钮文案区分
+                dl_label = f"下载 Pro {save_fmt}" if is_pro else f"下载 Free {save_fmt}"
+                st.download_button(dl_label, buf.getvalue(), f"plot.{save_fmt_lower}")
+                
+                if not is_pro:
+                    st.caption("💡 想要 PDF 矢量图和 600 DPI？请在左侧激活 Pro 版。")
 
         except Exception as e:
             st.error(f"绘图失败: {e}")
