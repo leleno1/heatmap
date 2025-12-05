@@ -193,7 +193,7 @@ class AIAssistant:
         3. Use professional tone.
         """
         
-        # [优化] 如果用户有特定问题，将其加入 Prompt
+        # 如果用户有特定问题，将其加入 Prompt
         if user_query and user_query.strip():
             prompt = f"{base_prompt}\n\nImportant - The user has a specific question/instruction:\n{user_query}\nPlease prioritize answering the user's specific question while using the data summary as context."
         else:
@@ -328,7 +328,7 @@ class Visualizer:
             handles.append(h)
             labels.append(f'{val:.2f}')
         
-        # [修复] 1. 调整图例位置到 (1.35, 1) 避免与 Colorbar 冲突
+        # [修复] 调整图例位置到 (1.35, 1) 避免与 Colorbar 冲突
         ax.legend(handles, labels, title="|Val|", loc='upper left', bbox_to_anchor=(1.35, 1), frameon=False)
 
         if annot_df is not None:
@@ -347,7 +347,7 @@ class Visualizer:
         ax.set_yticklabels(y_labels)
         ax.invert_yaxis()
         
-        # [修复] 2. 强制等比例显示，保证气泡是圆的
+        # [修复] 强制等比例显示，保证气泡是圆的
         ax.set_aspect('equal')
         
         for spine in ax.spines.values(): spine.set_visible(False)
@@ -360,7 +360,7 @@ class Visualizer:
 # -----------------------------------------------------------------------------
 
 def main():
-    st.title("🧬 LabPlot Pro: v2.5 with AI Brain")
+    st.title("🧬 LabPlot Pro: v2.5 Color Control")
     
     # --- 1. 数据输入 ---
     with st.sidebar.expander("📂 1. 数据输入 (Data)", expanded=True):
@@ -423,6 +423,14 @@ def main():
             
         selected_cmap_name = st.selectbox("配色方案", current_options, 0)
         
+        # [恢复] 色彩范围锁定功能
+        use_manual_scale = st.checkbox("锁定色彩范围 (Lock Scale)", value=False, help="手动指定最小(vmin)和最大(vmax)值，用于统一多图标准")
+        vmin_manual, vmax_manual = None, None
+        if use_manual_scale:
+            col_v1, col_v2 = st.columns(2)
+            with col_v1: vmin_manual = st.number_input("Min", value=-2.0, step=0.5)
+            with col_v2: vmax_manual = st.number_input("Max", value=2.0, step=0.5)
+        
         default_label = "Value"
         if is_corr: default_label = "Pearson r"
         elif "Row" in norm_mode or "Z-Score" in norm_mode: default_label = "Z-Score"
@@ -445,7 +453,7 @@ def main():
     # --- 4. AI 智能解读 (New) ---
     with st.sidebar.expander("🤖 4. AI 智能解读 (AI Insight)", expanded=False):
         gemini_key = st.text_input("Gemini API Key", type="password")
-        # [新增] 用户自定义问题输入框
+        # 用户自定义问题输入框
         user_query = st.text_area("自定义问题 (可选)", placeholder="例如：请分析这些基因与癌症通路的关联...", help="留空则进行自动通用解读")
         start_ai = st.button("🧠 开始智能分析")
 
@@ -485,7 +493,7 @@ def main():
     if start_ai:
         with st.status("🤖 AI 正在思考中...", expanded=True) as status:
             st.write("正在提取关键特征...")
-            # [更新] 传递 user_query 到 AI 分析函数
+            # 传递 user_query 到 AI 分析函数
             ai_result = AIAssistant.analyze_data(df_plot, chart_type, gemini_key, user_query)
             st.write("正在生成报告...")
             status.update(label="✅ 分析完成", state="complete", expanded=True)
@@ -501,6 +509,20 @@ def main():
         try:
             fig = None
             
+            # [新增] 计算色彩范围
+            if use_manual_scale:
+                # 用户强制锁定
+                c_min, c_max = vmin_manual, vmax_manual
+                c_center = 0 if is_diverging else None
+            else:
+                # 智能自动
+                robust_min, robust_max = np.nanpercentile(df_plot.values, 2), np.nanpercentile(df_plot.values, 98)
+                if is_diverging: # Z-score/Corr 强制对称
+                    lim = max(abs(robust_min), abs(robust_max))
+                    c_min, c_max, c_center = -lim, lim, 0
+                else: # 原始值
+                    c_min, c_max, c_center = robust_min, robust_max, None
+
             # 1. 矩形热图
             if "矩形" in chart_type:
                 if cluster_on:
@@ -509,6 +531,7 @@ def main():
                         figsize=(w, h), cmap=final_cmap, annot=annot, fmt="",
                         cbar_label=cbar_label_input, 
                         method='average', metric='euclidean',
+                        vmin=c_min, vmax=c_max, center=c_center, # 应用色彩控制
                         tree_kws={'linewidths': 1.5}
                     )
                     plt.setp(g.ax_heatmap.get_xticklabels(), rotation=45, ha='right')
@@ -516,6 +539,7 @@ def main():
                 else:
                     fig, ax = plt.subplots(figsize=(w, h))
                     sns.heatmap(df_plot, ax=ax, cmap=final_cmap, annot=annot, fmt="", 
+                                vmin=c_min, vmax=c_max, center=c_center, # 应用色彩控制
                                 cbar_kws={'label': cbar_label_input})
                     plt.xticks(rotation=45, ha='right')
             
@@ -524,6 +548,7 @@ def main():
                 fig, ax = plt.subplots(figsize=(w, h))
                 mask = np.triu(np.ones_like(df_plot))
                 sns.heatmap(df_plot, mask=mask, ax=ax, cmap=final_cmap, annot=annot, fmt="", square=True,
+                            vmin=c_min, vmax=c_max, center=c_center, # 应用色彩控制
                             cbar_kws={'label': cbar_label_input})
                 plt.xticks(rotation=45, ha='right')
                 
@@ -533,6 +558,7 @@ def main():
                 Visualizer.draw_bubble_plot(
                     df_plot, ax, final_cmap, bubble_scale, 45, 
                     annot_df=annot, triangular=triangular_bubble,
+                    vmin=c_min, vmax=c_max, # 应用色彩控制
                     marker=marker_char, cbar_label=cbar_label_input
                 )
             
@@ -548,6 +574,7 @@ def main():
                 with c2: save_dpi = st.number_input("DPI", 100, 600, 300, 50)
                 
                 buf = io.BytesIO()
+                # 格式处理
                 save_fmt_lower = save_fmt.lower()
                 if save_fmt_lower == "jpg": save_fmt_lower = "jpeg"
                 
