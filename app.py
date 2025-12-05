@@ -371,7 +371,7 @@ def main():
     
     # === 0. 商业化激活区 (Lock) ===
     with st.sidebar.expander("🔑 Pro 版激活 (License)", expanded=True):
-        license_input = st.text_input("输入解锁码", type="password", help="关注公众号回复'神器'免费获取")
+        license_input = st.text_input("输入解锁码", type="password", help="关注公众号'AIBio Research'回复'heatmap'免费获取")
         is_pro = (license_input == PRO_LICENSE_KEY)
         if is_pro:
             st.success("✅ Pro 版已激活！所有功能解锁。")
@@ -624,3 +624,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
