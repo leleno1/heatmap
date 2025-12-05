@@ -376,7 +376,7 @@ def main():
         if is_pro:
             st.success("✅ Pro 版已激活！所有功能解锁。")
         else:
-            st.info("🔒 当前为免费版")
+            st.info("🔒 当前为免费版，关注公众号'AIBio Research'回复'heatmap'免费获取解锁码")
             st.caption(f"限制：最高 {FREE_DPI_LIMIT} DPI，不支持矢量导出，无法使用 AI。")
 
     # --- 1. 数据输入 ---
@@ -624,4 +624,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
