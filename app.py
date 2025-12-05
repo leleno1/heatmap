@@ -367,7 +367,7 @@ class Visualizer:
 # -----------------------------------------------------------------------------
 
 def main():
-    st.title("🧬 LabPlot Pro: v3.0 Commercial")
+    st.title("🧬 LabPlot Pro: v3.0")
     
     # === 0. 商业化激活区 (Lock) ===
     with st.sidebar.expander("🔑 Pro 版激活 (License)", expanded=True):
@@ -624,5 +624,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
